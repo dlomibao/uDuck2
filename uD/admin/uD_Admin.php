@@ -35,7 +35,7 @@
 			}
 		}//end construct
 		
-		/** connects vida PDO to Database
+		/** connects via PDO to Database
 		 * 
 		 */
 		public function connect(){
@@ -58,7 +58,18 @@
 		public function close(){
 			$this->con=null;
 		}
-		/*takes a sql statement, the parameters, and whether to 'fetch' (the first row returned), 'fetchAll',or 'execute' (only return true or false)*/
+		/**takes a sql statement, the parameters, 
+		 * and whether to 'fetch' (the first row returned),
+		 *  'fetchAll',or 'execute' (only return true or false)
+		 * @param sql	 			a string of the sql code (parameterized)
+		 * @param parameterArray	array containing the values of the parameters
+		 * @param fetch				the method of execution/return to use. either fetch, fetchAll or execute
+		 * @param errorreport		set to true if you want to print error info (default is false)
+		 * @return data			depends of fetch type. 
+		 * 							execute returns true/false on success/failure
+		 * 							fetchAll returns all rows of result set
+		 * 							fetch returns array indexed by both col name and 0 indexed col number
+		 *  */
 		private function genericQuery($sql,$parameterArray=array(),$fetch="fetchAll",$errorreport=false){
 			$this->con->prepare($sql);
 			$success=$statement->execute($paramerterArray);
@@ -66,14 +77,18 @@
 				print_r($statement->errorInfo());
 			}
 			if($fetch=="fetchAll"){ $data=$statement->fetchAll();}
-			if($fetch=="fetch"){ $data=$statement->fetch();}
-			if($fetch=="execute"){$data=$success;}
+			elseif($fetch=="fetch"){ $data=$statement->fetch();}
+			elseif($fetch=="execute"){$data=$success;}
+			else{$data=null;}
 			$statement->closeCursor();
 			return $data;
 			
 		}
-		/**hashes a password in a secure non reversible way that is safe from rainbow table attacks and can be made stronger by increaseing the cost
-		*/
+		/**hashes a password in a secure non reversible way that is safe from rainbow table
+		 *  attacks and can be made stronger by increasing the cost
+		 * @param password		password string to by hashed
+		 * @param cost			
+		 */
 		public function blowfishCrypt($password,$cost)//cost makes it harder for hackers to crack the password
 		{
 			$chars='./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

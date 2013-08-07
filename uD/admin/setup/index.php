@@ -1,8 +1,14 @@
+<?php include "./bc_cc.php";?>
 <html>
 <head><title>uDuck2 setup</title></head>
 <body>
 <?php 
+	if($_GET['alert_message']){
+		echo "<b>".strip_tags($_GET['alert_message'])."<b><br>";
+	}
+	
 	if(!$_GET['install'] && !$_POST['install'] && !file_exists("../uD_config.php")){
+		echo "PHP Version Installed: ".phpversion()."<br><br>";	
 		echo 
 		'<img src="../img/uDuckLogo.png">
 		<form>
@@ -46,6 +52,18 @@
 						<tr><td>DB read only account</td><td><input type="text" name="dbrouser" value="ud2readonly"></td></tr>
 						<tr><td>DB read only password</td><td><input type="text" name="dbrouserpass" value="UDreadonlypass"></td></tr>
 						
+						<tr>
+							<td colspan=2>
+								Below, enter your desired user information for the initial master user.
+								You can add more users and set permissions later but there must always be a master user.
+								This user is different from the mysql username and the application accounts.
+								This is for logging in to and managing uDuck CMS. Email is used for password reset.
+							</td>
+						</tr>
+						<tr><td>Username</td><td><input type="text" name="uduser" value="admin">    </td></tr>
+						<tr><td>Password</td><td><input type="password" name="udpass"> </td></tr>
+						<tr><td>Display Name</td><td><input type="text" name="uddisplay" value="administrator">  </td></tr>
+						<tr><td>E-mail</td><td><input type="text" name="udemail">               </td></tr>
 					</table>
 					<br>
 					<input type="submit" name="install" value="submit">
@@ -62,6 +80,13 @@
 			$dbrouser    = $_POST['dbrouser'];
 			$dbrouserpass= $_POST['dbrouserpass'];
 			$dbhost      = $_POST['dbhost'];
+			$uduser		 = $_POST['uduser'];
+			$udpass		 = $_POST['udpass'];
+			$uddisplay   = $_POST['uddisplay'];
+			$udemail	 = filter_var($_POST['udemail'],FILTER_SANITIZE_EMAIL);
+			
+			if(!$udemail){header('Location: index.php?install=yes&alert_message=Invalid_Email_Entered');}
+			
 			
 
 			
@@ -96,7 +121,7 @@
 								`displayname` VARCHAR(255),
 								`email`    VARCHAR(255) NOT NULL,
 								`hash`     VARCHAR(255) NOT NULL,
-								`permissions` INT NOT NULL DEFAULT 0,
+								`permissions` TINYINT UNSIGNED NOT NULL DEFAULT 1,
 								`created`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 							) ENGINE=INNODB;
 							");
@@ -194,6 +219,7 @@
 			}
 			
 			
+			$bccost=optimum_bcrypt_cost();//tests server for optimum bcrypt cost for password hashing
 			
 			$configfile=
 			"<?php"."\n".
@@ -209,12 +235,24 @@
 			"define('DB_USERPASS_RO'    ,'{$dbrouserpass}');"."\n"."\n".
 			
 			"define('DB_NAME'           ,'{$dbname}');"."\n".
+			"define('BCRYPT_COST'       ,'{$bccost}');"."\n".
 			 
 	
 			"?>";
 			
 			file_put_contents("../uD_config.php", $configfile);
 			echo "configuration file written.<br>";
+			
+			//put data in database
+			$udhash=blowfishCrypt($udpass, $bccost);
+			try{
+				$dbh = new PDO("mysql:host=$dbhost;dbname=$dbname",$dbuser,$dbuserpass);
+				$ps=$dbh->prepare("INSERT INTO `user` VALUES (0,:username,:display,:email,:hash,255)");
+				$ps->execute(array(':username'=>$uduser,':display'=>$uddisplay,':email'=>$udemail,':hash'=>$udhash));
+			}catch(PDOException $e){
+				echo "failed filling db with data <br>";
+				die("Error filling db ".$e->getMessage());
+			}
 			
 			echo "<br><b>Done!</b>";
 		}
