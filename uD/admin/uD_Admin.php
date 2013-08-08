@@ -71,7 +71,7 @@
 		 * 							fetch returns array indexed by both col name and 0 indexed col number
 		 *  */
 		private function genericQuery($sql,$parameterArray=array(),$fetch="fetchAll",$errorreport=false){
-			$this->con->prepare($sql);
+			$statement=$this->con->prepare($sql);
 			$success=$statement->execute($paramerterArray);
 			if($errorreport==true && !$success){
 				print_r($statement->errorInfo());
@@ -95,6 +95,42 @@
 			$salt=sprintf('$2a$%02d$',$cost);
 			for($i=0;$i<22;$i++) $salt.=$chars[mt_rand(0,63)];
 			return crypt($password,$salt);
+		}
+		/**logs in (using global session)
+		 * @param user		the username
+		 * @param pass		the password
+		 * @return status	"success","fail_nouser","fail_pass"
+		 * $_SESSION['login_attempts'] holds number of failed login attempts (by password)
+		 * 
+		 * **/
+		public function login($user,$pass){
+			$udata=$this->genericQuery("SELECT `id`,`username`,`hash`,`displayname`,`email`,`permissions`,`created` FROM `user` WHERE `username` = '?'",array($user),"fetch");
+			
+			if($udata==false){return "fail_nouser";}//if the specified user is not found
+			
+			$hash=$udata['hash'];
+
+			if($hash==crypt($pass,$hash)){
+				echo "success";
+				session_regenerate_id(true);//creates a new session
+				$_SESSION['login_attempts']=0;//reset login attempts
+				$_SESSION['uID']=$udata['id'];
+				$_SESSION['uDisplay']=$udata['displayname'];
+				$_SESSION['uName']=$udata['username'];
+				$_SESSION['uEmail']=$udata['email'];
+				$_SESSION['uPermission']=$udata['permissions'];
+				$_SESSION['uCreated']=$udata['created'];
+				
+				return "success";
+			}else{
+				echo "fail pass";
+				if(isset($_SESSION['login_attempts'])){
+					$_SESSION['login_attempts']+=1;
+				}else{
+					$_SESSION['login_attempts']=1;
+				}
+				return "fail_pass";
+			}
 		}
 		
 		

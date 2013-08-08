@@ -1,10 +1,13 @@
-<?php include "./bc_cc.php";?>
+<?php session_start();
+error_reporting(E_ALL);
+include "./bc_cc.php";?>
 <html>
 <head><title>uDuck2 setup</title></head>
 <body>
 <?php 
-	if($_GET['alert_message']){
-		echo "<b>".strip_tags($_GET['alert_message'])."<b><br>";
+	if($_SESSION['alert_message']){
+		echo "<h1 style='color:red'>".strip_tags($_SESSION['alert_message'])."</h1><br>";
+		unset($_SESSION['alert_message']);
 	}
 	
 	if(!$_GET['install'] && !$_POST['install'] && !file_exists("../uD_config.php")){
@@ -82,10 +85,15 @@
 			$dbhost      = $_POST['dbhost'];
 			$uduser		 = $_POST['uduser'];
 			$udpass		 = $_POST['udpass'];
-			$uddisplay   = $_POST['uddisplay'];
+			$uddisplay   = filter_var($_POST['uddisplay'],FILTER_SANITIZE_STRING);
 			$udemail	 = filter_var($_POST['udemail'],FILTER_SANITIZE_EMAIL);
 			
-			if(!$udemail){header('Location: index.php?install=yes&alert_message=Invalid_Email_Entered');}
+			
+			if(!filter_var($udemail,FILTER_VALIDATE_EMAIL)){
+				$_SESSION['alert_message']="Invalid E-mail Entered";
+				header('Location: index.php?install=yes');
+				exit();
+			}
 			
 			
 
@@ -122,7 +130,8 @@
 								`email`    VARCHAR(255) NOT NULL,
 								`hash`     VARCHAR(255) NOT NULL,
 								`permissions` TINYINT UNSIGNED NOT NULL DEFAULT 1,
-								`created`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+								`created`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+								UNIQUE (`username`)
 							) ENGINE=INNODB;
 							");
 				$dbh->exec("CREATE TABLE IF NOT EXISTS `post`
@@ -234,9 +243,9 @@
 			"define('DB_USER_RO'        ,'{$dbrouser}');//READ ONLY USER"."\n".
 			"define('DB_USERPASS_RO'    ,'{$dbrouserpass}');"."\n"."\n".
 			
-			"define('DB_NAME'           ,'{$dbname}');"."\n".
-			"define('BCRYPT_COST'       ,'{$bccost}');"."\n".
-			 
+			"define('DB_NAME'           ,'{$dbname}');"."\n\n".
+			"define('BCRYPT_COST'       ,{$bccost});"."\n".
+			"define('MAX_LOGIN_ATTEMPT'  ,7); \n".
 	
 			"?>";
 			
@@ -246,9 +255,15 @@
 			//put data in database
 			$udhash=blowfishCrypt($udpass, $bccost);
 			try{
+				echo "trying to fill db<br>";
 				$dbh = new PDO("mysql:host=$dbhost;dbname=$dbname",$dbuser,$dbuserpass);
-				$ps=$dbh->prepare("INSERT INTO `user` VALUES (0,:username,:display,:email,:hash,255)");
+				
+				$ps=$dbh->prepare("INSERT INTO `user` (`id`, `username`, `displayname`, `email`, `hash`, `permissions`, `created`) VALUES (1,:username,:display,:email,:hash,255,CURRENT_TIMESTAMP)");
 				$ps->execute(array(':username'=>$uduser,':display'=>$uddisplay,':email'=>$udemail,':hash'=>$udhash));
+				
+				$dbh->exec("INSERT INTO `category` (`id`,`name`,`groupname`) VALUES (1,'Blog','Series')");
+				
+				echo "database filled.<br>";
 			}catch(PDOException $e){
 				echo "failed filling db with data <br>";
 				die("Error filling db ".$e->getMessage());
