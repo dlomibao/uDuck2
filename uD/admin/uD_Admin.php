@@ -8,8 +8,8 @@
 	class uDuck_Admin{
 		private $HOST = DB_HOST;
 		private $DB	  = DB_NAME;
-		private $USER = DB_USER_RO;
-		private $PASS = DB_USERPASS_RO;
+		private $USER = DB_USER;
+		private $PASS = DB_USERPASS;
 		
 		public $con;//connection object (TODO: make private for final code)
 		
@@ -21,14 +21,14 @@
 		public $c;
 		public $g;
 		
-		/**creates a new cms object defaults to readonly (READWRITE='r') and autoconnect
-	 	 * @param READWRITE		r or rw
+		/**creates a new cms object defaults to readwrite (READWRITE='rw') and autoconnect
+	 	 * @param READWRITE		r or rw (use r to restrict to get/select operations )
 		 * @param CONNECT 		true or false 
 	 	 */
-		public function __construct($READWRITE="r",$CONNECT=TRUE){
-			if($READWRITE=="rw"){
-				$this->USER= DB_USER;
-				$this->PASS= DB_USERPASS;
+		public function __construct($READWRITE="rw",$CONNECT=TRUE){
+			if($READWRITE=="r"){
+				$this->USER= DB_USER_RO;
+				$this->PASS= DB_USERPASS_RO;
 			}
 			if($CONNECT){
 				$this->connect();
@@ -72,7 +72,7 @@
 		 *  */
 		private function genericQuery($sql,$parameterArray=array(),$fetch="fetchAll",$errorreport=false){
 			$statement=$this->con->prepare($sql);
-			$success=$statement->execute($paramerterArray);
+			$success=$statement->execute($parameterArray);
 			if($errorreport==true && !$success){
 				print_r($statement->errorInfo());
 			}
@@ -99,19 +99,30 @@
 		/**logs in (using global session)
 		 * @param user		the username
 		 * @param pass		the password
-		 * @return status	"success","fail_nouser","fail_pass"
+		 * @return status	"success","fail_nouser","fail_pass","fail_locked"
 		 * $_SESSION['login_attempts'] holds number of failed login attempts (by password)
-		 * 
+		 * $_SESSION['locked_time'] holds time left on lock in minutes
 		 * **/
 		public function login($user,$pass){
-			$udata=$this->genericQuery("SELECT `id`,`username`,`hash`,`displayname`,`email`,`permissions`,`created` FROM `user` WHERE `username` = '?'",array($user),"fetch");
+			$user=strtolower(filter_var($user,FILTER_SANITIZE_STRING));
+			$udata=$this->genericQuery("SELECT *, TIMESTAMPDIFF(MINUTE,NOW(),`lockouttime`)+:locktime as `timeleft` FROM `user` 
+										WHERE `username` = :usr ",
+										array(':usr' => $user, ':locktime'=> LOCKOUT_TIME),
+										"fetch");
 			
-			if($udata==false){return "fail_nouser";}//if the specified user is not found
+			if($udata['timeleft']>0){
+				$_SESSION['locked_time']=$udata['timeleft'];
+				return "fail_locked";}
+			if(!isset($udata['username'])){return "fail_nouser";}//if the specified user is not found
 			
 			$hash=$udata['hash'];
 
+			settype($udata['id'],"integer");
 			if($hash==crypt($pass,$hash)){
 				echo "success";
+				$this->genericQuery("UPDATE `user` SET `logintries`=0,`lockouttime`=0 WHERE `id`=:uid",
+									 array(':uid' => $udata['id']),"execute");
+				
 				session_regenerate_id(true);//creates a new session
 				$_SESSION['login_attempts']=0;//reset login attempts
 				$_SESSION['uID']=$udata['id'];
@@ -124,13 +135,30 @@
 				return "success";
 			}else{
 				echo "fail pass";
-				if(isset($_SESSION['login_attempts'])){
-					$_SESSION['login_attempts']+=1;
-				}else{
-					$_SESSION['login_attempts']=1;
+				$_SESSION['login_attempts']=(int)$udata['logintries']+1;
+				$this->genericQuery("UPDATE `user` SET `logintries` = `logintries`+1 WHERE id = ?",array($udata['id']));
+
+				if((MAX_LOGIN_ATTEMPT-$_SESSION['login_attempts'])<1){
+					//lock user
+					$this->genericQuery("UPDATE `user` 
+									 	SET `lockouttime`=NOW(),`logintries`=0 
+									 	WHERE `id`=:uid",
+									 	array(':uid' => $udata['id']),"execute");
+					
+					$_SESSION['login_attempts']=0;//reset login attempts
+					$_SESSION['locked_time']=LOCKOUT_TIME;
+					return "fail_locked";
 				}
 				return "fail_pass";
 			}
+		}//end login
+
+		/**logout**/
+		public function logout(){
+			session_unset();
+			session_destroy();
+			session_regenerate_id(true);
+			
 		}
 		
 		

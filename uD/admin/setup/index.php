@@ -83,7 +83,7 @@ include "./bc_cc.php";?>
 			$dbrouser    = $_POST['dbrouser'];
 			$dbrouserpass= $_POST['dbrouserpass'];
 			$dbhost      = $_POST['dbhost'];
-			$uduser		 = $_POST['uduser'];
+			$uduser		 = strtolower(filter_var($_POST['uduser'],FILTER_SANITIZE_STRING));
 			$udpass		 = $_POST['udpass'];
 			$uddisplay   = filter_var($_POST['uddisplay'],FILTER_SANITIZE_STRING);
 			$udemail	 = filter_var($_POST['udemail'],FILTER_SANITIZE_EMAIL);
@@ -131,6 +131,8 @@ include "./bc_cc.php";?>
 								`hash`     VARCHAR(255) NOT NULL,
 								`permissions` TINYINT UNSIGNED NOT NULL DEFAULT 1,
 								`created`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+								`logintries` TINYINT DEFAULT 0,
+								`lockouttime` TIMESTAMP NOT NULL DEFAULT 0,
 								UNIQUE (`username`)
 							) ENGINE=INNODB;
 							");
@@ -245,7 +247,8 @@ include "./bc_cc.php";?>
 			
 			"define('DB_NAME'           ,'{$dbname}');"."\n\n".
 			"define('BCRYPT_COST'       ,{$bccost});"."\n".
-			"define('MAX_LOGIN_ATTEMPT'  ,7); \n".
+			"define('MAX_LOGIN_ATTEMPT' ,5); \n".
+			"define('LOCKOUT_TIME'      ,10);//number of minutes to lockout\n".
 	
 			"?>";
 			

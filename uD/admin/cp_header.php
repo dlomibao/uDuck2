@@ -1,7 +1,8 @@
 <?php
 //starts session loads config and includes uDuckAdmin class
 require_once "uD_Admin.php";
-echo "hello";
+$uDadmin= new uDuck_Admin();
+if(isset($_GET['logout'])){$uDadmin->logout();}
 if(!isset($_SESSION['uID'])){
 	$_SESSION['origin']=$_SERVER['SCRIPT_NAME'];
 	header("Location: login.php");

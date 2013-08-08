@@ -8,14 +8,17 @@ if(!isset($_POST['submit'])){ ?>
 	</head>
 	<body style="text-align:center;">
 	
-	<div class="center bgcolordark">
+
+	<div class="center bgcolorlight" style="padding:10%;width:300px;height:400px;margin-top:100px;">
+		
 		<?php if(isset($_SESSION['alert_message'])){
+			echo "<div class='center bgcolordark' style='padding:20px'>";
 			$sesalrt=filter_var($_SESSION['alert_message'],FILTER_SANITIZE_STRING);
 			echo "$sesalrt";
 			unset($_SESSION['alert_message']);
+			echo "</div><br>";
 		}?>
-	</div>	
-	<div class="center bgcolorlight" style="padding:10%;width:300px;height:400px;margin-top:100px;">
+		
 		<img src="img/uDuckLogo.png" class="center"><br>
 		<form method="POST">
 		<table style="text-align:center">
@@ -46,7 +49,7 @@ if(!isset($_POST['submit'])){ ?>
 <?php }else{//if submitted
 	
 	
-	$admin= new uDuck_Admin();
+	$admin= new uDuck_Admin("rw");
 	$user=$_POST['user'];
 	$success=$admin->login($user,$_POST['pword']);
 	if($success=="success"){
@@ -64,6 +67,11 @@ if(!isset($_POST['submit'])){ ?>
 	}elseif($success=="fail_pass"){
 		$left=MAX_LOGIN_ATTEMPT -$_SESSION['login_attempts'];
 		$_SESSION['alert_message']="Incorrect password for user '$user'. $left login attempts left. ";
+		header("Location: login.php");
+		exit;
+	}elseif($success=="fail_locked"){
+		$lockedtime=$_SESSION['locked_time'];
+		$_SESSION['alert_message']="User '$user' locked out for $lockedtime more minute(s)";
 		header("Location: login.php");
 		exit;
 	}
