@@ -133,7 +133,8 @@ include "./bc_cc.php";?>
 								`created`  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 								`logintries` TINYINT DEFAULT 0,
 								`lockouttime` TIMESTAMP NOT NULL DEFAULT 0,
-								UNIQUE (`username`)
+								UNIQUE (`username`),
+								UNIQUE (`email`)
 							) ENGINE=INNODB;
 							");
 				$dbh->exec("CREATE TABLE IF NOT EXISTS `post`

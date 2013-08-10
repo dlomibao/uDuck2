@@ -1,4 +1,8 @@
 <?php
+	error_reporting(E_ALL);
+	ini_set('display_errors', '1');
+	date_default_timezone_set('America/New_York');
+
 	if(!isset($_SESSION)){session_start();} 
 	require_once dirname(__FILE__)."/uD_config.php";
 	/**
@@ -158,6 +162,51 @@
 			session_unset();
 			session_destroy();
 			session_regenerate_id(true);
+			
+		}
+		/*generates a password reset string to be sent via email*/
+		public function resetstring($email){
+			$email=filter_var($email,FILTER_SANITIZE_EMAIL);
+			$query=$this->genericQuery("SELECT `username` FROM `user` WHERE `email`=?",array($email),"fetch");
+			if($query==false){
+				return false;//user was not found.
+			}
+			$requestdate=date("YmdHis");
+			$string=$requestdate."_";
+			$string.=hash("md5",$query['username'].$requestdate);
+			
+			$this->genericQuery("INSERT INTO `settings` (`setting`,`value`) VALUES (:set,:val)
+								  ON DUPLICATE KEY UPDATE `value`= :val",
+								  array(":set"=> "resetpass:$email", ":val" => $string));
+			return $string;
+		}
+		
+		/*resets password returns true on success false on failure to update*/
+		public function resetpass($email,$resetstring,$newpass){
+			
+			$email=filter_var($email,FILTER_SANITIZE_EMAIL);
+			$query=$this->genericQuery("SELECT `value` FROM `settings` WHERE `setting`=?",array("resetpass:$email"),"fetch");
+			if($query==false){return false;}//no record of a password reset being requested	
+			if($resetstring!=$query['value']){return false;}//invalid reset string
+			$split=explode("_",$query['value']);
+			$reqdate= DateTime::createFromFormat("YmdHis",$split[0]);
+			$now= new DateTime();
+			$hourssince= $reqdate->diff($now)->format('%h');
+			if($hourssince>12){//12 hour limit before you have to re request
+				
+				$this->genericQuery("DELETE FROM `settings` WHERE `setting`=?",array("resetpass:$email"));
+				return false;
+			}//expired reset string
+			
+			//if everything else is valid change password
+			$success=$this->genericQuery("UPDATE `user` SET `hash`= :hash WHERE `email`= :email",
+										array(":hash" => $this->blowfishCrypt($newpass, BCRYPT_COST),
+											  ":email"=> $email),		
+										"execute");
+			//clear reset string from settings
+			$this->genericQuery("DELETE FROM `settings` WHERE `setting`=?",array("resetpass:$email"));
+			return $success;
+			
 			
 		}
 		

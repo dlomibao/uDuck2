@@ -9,7 +9,7 @@ if(!isset($_POST['submit'])){ ?>
 	<body style="text-align:center;">
 	
 
-	<div class="center bgcolorlight" style="padding:10%;width:300px;height:400px;margin-top:100px;">
+	<div class="center bgcolorlight" style="padding:5%;width:300px;margin-top:100px;">
 		
 		<?php if(isset($_SESSION['alert_message'])){
 			echo "<div class='center bgcolordark' style='padding:20px'>";
@@ -38,7 +38,7 @@ if(!isset($_POST['submit'])){ ?>
 		</table>
 		</form>
 		<br>
-		<a href="resetpass.php">forgot username/password</a><br>
+		<a href="resetpass.php?resetform">forgot username/password</a><br>
 	
 				
 	</div>	

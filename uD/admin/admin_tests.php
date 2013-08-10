@@ -10,4 +10,12 @@ $cms= new uDuck_Admin();
 
 echo "<br>";
 echo $cms->blowfishCrypt("hello", 10);
+echo "<br>";
+$resetstring=$cms->resetstring("derek@lomibao.net");
+echo $resetstring."<br>";
+
+echo "test reset<br>";
+if($cms->resetpass("derek@lomibao.net", $resetstring, "qwerty")){
+	echo "success<br>";
+}else{echo "fail<br>";}
 ?>
